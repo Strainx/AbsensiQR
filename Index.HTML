@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi Digital Sekolah Rakyat</title>
+    <!-- Tailwind CSS untuk Tampilan Modern -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Library QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 font-sans">
+
+    <div class="max-w-xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+        <!-- Header -->
+        <div class="bg-indigo-700 p-6 text-white text-center">
+            <h1 class="text-2xl font-bold">Absensi Sekolah Rakyat</h1>
+            <p class="text-indigo-200 text-sm mt-1">Scan QR Code Multi-Device Terpusat</p>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <!-- ================= PAGE 1: SETUP & SCANNER ================= -->
+            <div id="page-scanner">
+                <!-- Form Pengaturan Kegiatan -->
+                <div id="setup-section" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Pilih Kegiatan:</label>
+                        <select id="kegiatan" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" onchange="updateTable()">
+                            <option value="Sholat Subuh Berjamaah">Sholat Subuh Berjamaah</option>
+                            <option value="Sholat Dzuhur Berjamaah">Sholat Dzuhur Berjamaah</option>
+                            <option value="Sholat Ashar Berjamaah">Sholat Ashar Berjamaah</option>
+                            <option value="Sholat Maghrib Berjamaah">Sholat Maghrib Berjamaah</option>
+                            <option value="Sholat Isya Berjamaah">Sholat Isya Berjamaah</option>
+                            <option value="Absen Malam Asrama">Absen Malam Asrama</option>
+                            <option value="Kegiatan Belajar/Kajian">Kegiatan Belajar / Kajian</option>
+                            <option value="Gotong Royong / Kurve">Gotong Royong / Kurve</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Nama Petugas Absen:</label>
+                        <input type="text" id="petugas" placeholder="Masukkan nama petugas" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required>
+                    </div>
+
+                    <button onclick="startScanning()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-md transition duration-200">
+                        Mulai Scan Absensi
+                    </button>
+                </div>
+
+                <!-- Area Scanner & Status (Hidden Awal) -->
+                <div id="scan-section" class="hidden space-y-4">
+                    <!-- Info Kegiatan Aktif & Tombol Navigasi/Kontrol -->
+                    <div class="flex justify-between items-center bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+                        <div>
+                            <p class="text-xs text-indigo-500 font-semibold uppercase">Kegiatan Aktif</p>
+                            <p id="active-kegiatan" class="font-bold text-gray-800 text-sm"></p>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="openDashboard()" class="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-2 rounded font-semibold shadow">
+                                📊 Grafik
+                            </button>
+                            <button onclick="openRekapTable()" class="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-2 rounded font-semibold shadow">
+                                📋 Rekap
+                            </button>
+                            <button onclick="stopScanning()" class="text-[10px] bg-red-500 hover:bg-red-600 text-white px-2 py-2 rounded font-semibold">
+                                Ganti
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 🔍 Tombol Pengatur Ukuran Kotak Scanner (Kecil / Besar) -->
+                    <div class="flex justify-between items-center bg-slate-200 px-3 py-2 rounded-lg text-xs font-semibold text-gray-700">
+                        <span>Ukuran Kotak Scanner: <span id="size-label" class="text-indigo-600 font-bold">Sedang</span></span>
+                        <div class="flex gap-1.5">
+                            <button onclick="changeQrBoxSize(-50)" class="bg-white hover:bg-gray-100 text-gray-800 px-2.5 py-1 rounded shadow text-xs font-bold">−</button>
+                            <button onclick="changeQrBoxSize(50)" class="bg-white hover:bg-gray-100 text-gray-800 px-2.5 py-1 rounded shadow text-xs font-bold">+</button>
+                        </div>
+                    </div>
+
+                    <!-- Total Hadir Saja -->
+                    <div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-3 rounded-xl shadow-sm text-center">
+                        <p class="text-xs uppercase tracking-wider opacity-90 font-semibold">Total Siswa Hadir Sesi Ini</p>
+                        <p id="dash-total-hadir" class="text-2xl font-black mt-0.5">0</p>
+                    </div>
+
+                    <!-- Kamera Reader dengan Overlay Hitam & Tombol Jeda di Tengah -->
+                    <div class="relative rounded-xl overflow-hidden border-2 border-indigo-500 bg-black">
+                        <div id="reader" class="w-full"></div>
+                        
+                        <!-- Lapisan Hitam Saat Kamera Dijeda -->
+                        <div id="camera-overlay" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white hidden z-20">
+                            <span class="text-4xl mb-2">⏸️</span>
+                            <p class="font-bold text-base">Kamera Dijeda</p>
+                            <p class="text-xs text-gray-400 mt-1">Tekan tombol di bawah untuk melanjutkan</p>
+                        </div>
+
+                        <!-- Tombol Jeda Melayang di Tengah Bawah Kamera -->
+                        <div class="absolute bottom-4 left-0 right-0 flex justify-center z-30">
+                            <button id="btn-pause" onclick="toggleCameraPause()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2.5 rounded-full shadow-lg text-xs flex items-center gap-1.5 transition transform active:scale-95 border-2 border-white/20">
+                                ⏸️ Jeda Kamera
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Status Feedback Real-time -->
+                    <div id="status-box" class="p-4 rounded-xl text-center font-bold text-base hidden transition-all duration-300">
+                        <p id="status-text"></p>
+                    </div>
+                </div>
+
+                <!-- Tabel Riwayat Sesi Sesuai Kegiatan -->
+                <div class="pt-4 mt-4 border-t border-gray-200">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-gray-800">Riwayat Sesi Ini</h3>
+                    </div>
+                    
+                    <div class="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                        <table class="w-full text-left text-xs text-gray-600">
+                            <thead class="bg-gray-50 text-gray-700 uppercase sticky top-0">
+                                <tr>
+                                    <th class="p-2 border-b">Waktu</th>
+                                    <th class="p-2 border-b">Nama Siswa</th>
+                                    <th class="p-2 border-b">Kelas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-table">
+                                <tr>
+                                    <td colspan="3" class="p-3 text-center text-gray-400">Belum ada data untuk kegiatan ini.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= PAGE 2: DASHBOARD GRAFIK REKAP KELAS ================= -->
+            <div id="page-dashboard" class="hidden space-y-5">
+                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-lg">
+                    <div>
+                        <h2 class="font-bold text-gray-800 text-base">Grafik Kehadiran Per Kelas</h2>
+                        <p id="dash-title-kegiatan" class="text-xs text-indigo-600 font-semibold"></p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="shareToWhatsApp()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2.5 rounded-lg shadow transition flex items-center gap-1">
+                            💬 Kirim WA
+                        </button>
+                        <button onclick="closeDashboard()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2.5 rounded-lg shadow transition">
+                            ⬅️ Scanner
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Kontainer Batang Diagram Grafik Kelas -->
+                <div class="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <p class="text-xs text-gray-500 font-medium italic mb-2">*Jumlah siswa yang hadir berdasarkan kelas pada sesi aktif saat ini.</p>
+                    <div id="chart-container" class="space-y-3">
+                        <!-- Bar chart akan digenerate otomatis via JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= PAGE 3: TABEL REKAP KESELURUHAN (MASTER VS STATUS) ================= -->
+            <div id="page-rekap-tabel" class="hidden space-y-4">
+                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-lg">
+                    <div>
+                        <h2 class="font-bold text-gray-800 text-base">Rekap Keseluruhan Siswa</h2>
+                        <p id="rekap-title-kegiatan" class="text-xs text-indigo-600 font-semibold"></p>
+                    </div>
+                    <button onclick="closeRekapTable()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow transition">
+                        ⬅️ Scanner
+                    </button>
+                </div>
+
+                <!-- Kotak Pencarian Cepat di Tabel -->
+                <div>
+                    <input type="text" id="search-siswa" placeholder="🔍 Cari nama atau kelas siswa..." onkeyup="filterTabelRekap()" class="w-full p-2.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+
+                <!-- Kontainer Tabel Scrollable (Atas-Bawah & Kiri-Kanan) -->
+                <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                    <div class="max-h-96 overflow-y-auto overflow-x-auto">
+                        <table class="w-full text-left text-xs text-gray-600 whitespace-nowrap">
+                            <thead class="bg-indigo-50 text-indigo-900 uppercase sticky top-0 z-10 font-semibold">
+                                <tr>
+                                    <th class="p-2.5 border-b text-center">No</th>
+                                    <th class="p-2.5 border-b">Nama Siswa</th>
+                                    <th class="p-2.5 border-b">Kelas</th>
+                                    <th class="p-2.5 border-b text-center">Status</th>
+                                    <th class="p-2.5 border-b text-center">Waktu Absen</th>
+                                    <th class="p-2.5 border-b">Petugas Pencatat</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabel-rekap-body">
+                                <tr>
+                                    <td colspan="6" class="p-4 text-center text-gray-400">Memuat data rekap...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // GANTI LINK DI BAWAH INI DENGAN URL WEB APP APPS SCRIPT ANDA
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxs3gjlBU0dniylVuhh_sVfrw4BGE3vk-0TouQ6X78Z9PWpkAVzu0dzQwU1Zh9gvYAX/exec";
+
+        let html5QrcodeScanner = null;
+        let isCameraPaused = false;
+        let currentQrBoxSize = 250; 
+        let sessionData = []; 
+        let cacheRekapData = [];
+
+        let scanQueue = [];
+        let isSyncingQueue = false;
+
+        function startScanning() {
+            const petugas = document.getElementById('petugas').value.trim();
+            if (!petugas) {
+                alert('Silakan isi nama petugas terlebih dahulu!');
+                return;
+            }
+            if (SCRIPT_URL.includes("MASUKKAN_URL")) {
+                alert('Harap masukkan URL Web App Apps Script terlebih dahulu di dalam kode!');
+                return;
+            }
+
+            const kegiatan = document.getElementById('kegiatan').value;
+            document.getElementById('active-kegiatan').innerText = kegiatan;
+
+            document.getElementById('setup-section').classList.add('hidden');
+            document.getElementById('scan-section').classList.remove('hidden');
+
+            initScannerInstance();
+        }
+
+        function initScannerInstance() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().catch(() => {}).finally(() => {
+                    createScanner();
+                });
+            } else {
+                createScanner();
+            }
+        }
+
+        function createScanner() {
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            
+            const config = { 
+                fps: 10, 
+                qrbox: { width: currentQrBoxSize, height: currentQrBoxSize },
+                aspectRatio: 1.0
+            };
+
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                config, 
+                onScanSuccess
+            ).catch(err => {
+                alert("Gagal mengakses kamera: " + err + "\n\nPastikan Anda membuka halaman via HTTPS dan memberikan izin kamera.");
+                stopScanning();
+            });
+        }
+
+        function changeQrBoxSize(amount) {
+            currentQrBoxSize += amount;
+            if (currentQrBoxSize < 150) currentQrBoxSize = 150;
+            if (currentQrBoxSize > 350) currentQrBoxSize = 350;
+
+            let label = "Sedang";
+            if (currentQrBoxSize <= 180) label = "Kecil (QR Kecil/Jauh)";
+            else if (currentQrBoxSize >= 300) label = "Besar (QR Besar/Dekat)";
+            document.getElementById('size-label').innerText = label;
+
+            if (html5QrcodeScanner && !isCameraPaused) {
+                html5QrcodeScanner.stop().catch(() => {}).finally(() => {
+                    createScanner();
+                });
+            }
+        }
+
+        // ⏸️ Fitur Jeda / Lanjutkan Kamera (Layar Hitam & Tombol di Tengah)
+        function toggleCameraPause() {
+            const btnPause = document.getElementById('btn-pause');
+            const overlay = document.getElementById('camera-overlay');
+            if (!html5QrcodeScanner) return;
+
+            if (!isCameraPaused) {
+                html5QrcodeScanner.pause(true);
+                isCameraPaused = true;
+                
+                btnPause.innerHTML = "▶️ Lanjutkan Kamera";
+                btnPause.className = "bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-full shadow-lg text-xs flex items-center gap-1.5 transition transform active:scale-95 border-2 border-white/20";
+                
+                overlay.classList.remove('hidden');
+            } else {
+                html5QrcodeScanner.resume();
+                isCameraPaused = false;
+                
+                btnPause.innerHTML = "⏸️ Jeda Kamera";
+                btnPause.className = "bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2.5 rounded-full shadow-lg text-xs flex items-center gap-1.5 transition transform active:scale-95 border-2 border-white/20";
+                
+                overlay.classList.add('hidden');
+                hideStatus();
+            }
+        }
+
+        function openDashboard() {
+            const kegiatanAktif = document.getElementById('kegiatan').value;
+            document.getElementById('dash-title-kegiatan').innerText = kegiatanAktif;
+            document.getElementById('page-scanner').classList.add('hidden');
+            document.getElementById('page-rekap-tabel').classList.add('hidden');
+            document.getElementById('page-dashboard').classList.remove('hidden');
+            renderChart();
+        }
+
+        function closeDashboard() {
+            document.getElementById('page-dashboard').classList.add('hidden');
+            document.getElementById('page-scanner').classList.remove('hidden');
+        }
+
+        // Buka Halaman Tabel Rekap Keseluruhan
+        async function openRekapTable() {
+            const kegiatanAktif = document.getElementById('kegiatan').value;
+            document.getElementById('rekap-title-kegiatan').innerText = kegiatanAktif;
+            
+            document.getElementById('page-scanner').classList.add('hidden');
+            document.getElementById('page-dashboard').classList.add('hidden');
+            document.getElementById('page-rekap-tabel').classList.remove('hidden');
+
+            const tbody = document.getElementById('tabel-rekap-body');
+            tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">⏳ Sedang mengambil data rekap dari Google Sheets...</td></tr>`;
+
+            try {
+                let response = await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "getRekapKeseluruhan",
+                        kegiatan: kegiatanAktif
+                    })
+                });
+                let result = await response.json();
+
+                if (result.status === "success") {
+                    cacheRekapData = result.rekap;
+                    renderTabelRekap(cacheRekapData);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Gagal memuat data: ${result.pesan}</td></tr>`;
+                }
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Terjadi kesalahan koneksi server.</td></tr>`;
+            }
+        }
+
+        function closeRekapTable() {
+            document.getElementById('page-rekap-tabel').classList.add('hidden');
+            document.getElementById('page-scanner').classList.remove('hidden');
+        }
+
+        function renderTabelRekap(dataSiswa) {
+            const tbody = document.getElementById('tabel-rekap-body');
+            if (dataSiswa.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">Tidak ada data siswa ditemukan di MasterSiswa.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = dataSiswa.map(item => {
+                let badgeStatus = item.status === "Hadir" 
+                    ? `<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold">Hadir</span>`
+                    : `<span class="bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full font-bold">Belum Hadir</span>`;
+
+                let waktuBersih = item.waktu;
+                if (waktuBersih && waktuBersih.includes(":")) {
+                    let match = waktuBersih.match(/\d{2}:\d{2}(:\d{2})?/);
+                    if (match) waktuBersih = match[0];
+                }
+
+                return `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-2.5 text-center font-mono text-gray-400">${item.no}</td>
+                        <td class="p-2.5 font-semibold text-gray-800">${item.nama}</td>
+                        <td class="p-2.5">${item.kelas}</td>
+                        <td class="p-2.5 text-center">${badgeStatus}</td>
+                        <td class="p-2.5 text-center font-mono text-gray-500">${waktuBersih}</td>
+                        <td class="p-2.5 text-gray-500">${item.petugas}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Fitur Filter / Cari Nama Siswa Instan di Tabel Rekap
+        function filterTabelRekap() {
+            let keyword = document.getElementById('search-siswa').value.toLowerCase();
+            let filtered = cacheRekapData.filter(item => 
+                item.nama.toLowerCase().includes(keyword) || 
+                item.kelas.toLowerCase().includes(keyword) ||
+                item.status.toLowerCase().includes(keyword)
+            );
+            renderTabelRekap(filtered);
+        }
+
+        function renderChart() {
+            const kegiatanAktif = document.getElementById('kegiatan').value;
+            const filteredData = sessionData.filter(item => item.kegiatan === kegiatanAktif && item.kelas !== "..." && item.kelas !== "Duplikat");
+            const chartContainer = document.getElementById('chart-container');
+
+            if (filteredData.length === 0) {
+                chartContainer.innerHTML = `<p class="text-center text-gray-400 text-xs py-4">Belum ada data valid untuk dibuat grafik.</p>`;
+                return;
+            }
+
+            let kelasCount = {};
+            filteredData.forEach(item => {
+                let kls = item.kelas || "Lainnya";
+                kelasCount[kls] = (kelasCount[kls] || 0) + 1;
+            });
+
+            let maxVal = Math.max(...Object.values(kelasCount), 1);
+
+            chartContainer.innerHTML = Object.entries(kelasCount).map(([kelas, jumlah]) => {
+                let persentase = (jumlah / maxVal) * 100;
+                return `
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+                            <span>${kelas}</span>
+                            <span class="text-indigo-600 font-bold">${jumlah} Siswa</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div class="bg-indigo-600 h-full rounded-full transition-all duration-500" style="width: ${persentase}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function shareToWhatsApp() {
+            const kegiatanAktif = document.getElementById('kegiatan').value;
+            const petugas = document.getElementById('petugas').value || "Petugas";
+
+            const filteredData = sessionData.filter(item => item.kegiatan === kegiatanAktif && item.kelas !== "..." && item.kelas !== "Duplikat" && item.kelas !== "Error");
+            const totalHadir = filteredData.length;
+
+            let kelasCount = {};
+            filteredData.forEach(item => {
+                let kls = item.kelas || "Lainnya";
+                kelasCount[kls] = (kelasCount[kls] || 0) + 1;
+            });
+
+            let rincianKelas = Object.entries(kelasCount)
+                .map(([kls, jml]) => `• ${kls}: *${jml} siswa*`)
+                .join('\n');
+
+            let pesan = `🏫 *Laporan Kehadiran Asrama*\n` +
+                        `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                        `📌 *${kegiatanAktif}*\n` +
+                        `👤 Petugas: ${petugas}\n` +
+                        `━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+                        `🟢 *Hadir Sesi Ini: ${totalHadir} Siswa*\n\n` +
+                        `📚 *Breakdown Per Kelas:*\n` +
+                        (rincianKelas ? rincianKelas : "• Belum ada data") + `\n\n` +
+                        `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                        `_Sistem Terpusat Multi-Device Asrama_`;
+
+            let encodedUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(pesan)}`;
+            window.open(encodedUrl, '_blank');
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            if (isCameraPaused) return;
+
+            const idSiswaScan = decodedText.trim();
+            const kegiatanAktif = document.getElementById('kegiatan').value;
+
+            const sudahAdaDiSesi = sessionData.some(item => item.id === idSiswaScan && item.kegiatan === kegiatanAktif && item.kelas !== "Duplikat");
+            if (sudahAdaDiSesi) {
+                playErrorSound();
+                if ("vibrate" in navigator) navigator.vibrate([100, 50, 100]);
+                showStatus(`⚠️ Siswa ini sudah tercatat diabsen dalam sesi ini!`, "bg-amber-100 text-amber-800 border border-amber-400");
+                setTimeout(() => hideStatus(), 1500);
+                return;
+            }
+
+            playBeepSound();
+            if ("vibrate" in navigator) navigator.vibrate(100);
+
+            const waktuNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            const itemBaru = {
+                id: idSiswaScan,
+                waktu: waktuNow,
+                nama: `ID: ${idSiswaScan} (Memvalidasi Server...)`,
+                kelas: "...",
+                kegiatan: kegiatanAktif
+            };
+            sessionData.unshift(itemBaru);
+            updateTable();
+            
+            showStatus(`✅ Memproses QR: ${idSiswaScan}`, "bg-emerald-100 text-emerald-800 border border-emerald-400");
+            setTimeout(() => hideStatus(), 1000);
+
+            scanQueue.push(itemBaru);
+            processQueue();
+        }
+
+        function processQueue() {
+            if (isSyncingQueue || scanQueue.length === 0) return;
+            isSyncingQueue = true;
+
+            const currentItem = scanQueue[0];
+            const payload = {
+                idSiswa: currentItem.id,
+                kegiatan: currentItem.kegiatan,
+                petugas: document.getElementById('petugas').value
+            };
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+            fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            })
+            .then(response => response.json())
+            .then(result => {
+                clearTimeout(timeoutId);
+                if (result.status === "success") {
+                    currentItem.nama = result.siswa.nama;
+                    currentItem.kelas = result.siswa.kelas;
+                    showStatus(`✅ ${result.siswa.nama} (${result.siswa.kelas}) Berhasil!`, "bg-emerald-100 text-emerald-800 border border-emerald-400");
+                    setTimeout(() => hideStatus(), 1200);
+                } else if (result.status === "warning") {
+                    playErrorSound();
+                    currentItem.nama = `ID: ${currentItem.id} (Sudah Absen)`;
+                    currentItem.kelas = "Duplikat";
+                    showStatus(`⚠️ ${result.pesan}`, "bg-amber-100 text-amber-800 border border-amber-400");
+                    setTimeout(() => hideStatus(), 2000);
+                } else {
+                    playErrorSound();
+                    currentItem.nama = `ID: ${currentItem.id} (Gagal)`;
+                    currentItem.kelas = "Error";
+                    showStatus(`❌ ${result.pesan}`, "bg-red-100 text-red-800 border border-red-400");
+                    setTimeout(() => hideStatus(), 2000);
+                }
+            })
+            .catch(err => {
+                console.error("Gagal sinkron / timeout:", err);
+                currentItem.nama = `ID: ${currentItem.id} (Offline Mode)`;
+                currentItem.kelas = "Offline";
+            })
+            .finally(() => {
+                updateTable();
+                scanQueue.shift();
+                isSyncingQueue = false;
+                processQueue();
+            });
+        }
+
+        function showStatus(message, classes) {
+            const box = document.getElementById('status-box');
+            const text = document.getElementById('status-text');
+            box.className = `p-4 rounded-xl text-center font-bold text-sm transition-all duration-300 ${classes}`;
+            text.innerHTML = message;
+            box.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            document.getElementById('status-box').classList.add('hidden');
+        }
+
+        function updateTable() {
+            const kegiatanAktif = document.getElementById('kegiatan').value;
+            const tbody = document.getElementById('log-table');
+
+            const filteredData = sessionData.filter(item => item.kegiatan === kegiatanAktif);
+            const validCount = filteredData.filter(item => item.kelas !== "..." && item.kelas !== "Duplikat" && item.kelas !== "Error").length;
+            document.getElementById('dash-total-hadir').innerText = validCount;
+
+            if (filteredData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-400">Belum ada data untuk kegiatan ini.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filteredData.map(item => `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-2 font-mono">${item.waktu}</td>
+                    <td class="p-2 font-semibold text-gray-800">${item.nama}</td>
+                    <td class="p-2">${item.kelas}</td>
+                </tr>
+            `).join('');
+        }
+
+        function stopScanning() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    document.getElementById('scan-section').classList.add('hidden');
+                    document.getElementById('setup-section').classList.remove('hidden');
+                    isCameraPaused = false;
+                    document.getElementById('camera-overlay').classList.add('hidden');
+                    const btnPause = document.getElementById('btn-pause');
+                    btnPause.innerHTML = "⏸️ Jeda Kamera";
+                    btnPause.className = "bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2.5 rounded-full shadow-lg text-xs flex items-center gap-1.5 transition transform active:scale-95 border-2 border-white/20";
+                }).catch(err => console.error(err));
+            }
+        }
+
+        function playBeepSound() {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = "sine";
+            osc.frequency.value = 800;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function playErrorSound() {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = "sawtooth";
+            osc.frequency.value = 250;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+    </script>
+</body>
+</html>
