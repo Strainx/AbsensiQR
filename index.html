@@ -68,7 +68,7 @@
                         </div>
                     </div>
 
-                    <!-- 🔍 Tombol Pengatur Ukuran Kotak Scanner (Kecil / Besar) -->
+                    <!-- 🔍 Tombol Pengatur Ukuran Kotak Scanner -->
                     <div class="flex justify-between items-center bg-slate-200 px-3 py-2 rounded-lg text-xs font-semibold text-gray-700">
                         <span>Ukuran Kotak Scanner: <span id="size-label" class="text-indigo-600 font-bold">Sedang</span></span>
                         <div class="flex gap-1.5">
@@ -83,7 +83,7 @@
                         <p id="dash-total-hadir" class="text-2xl font-black mt-0.5">0</p>
                     </div>
 
-                    <!-- Kamera Reader dengan Overlay Hitam & Tombol Jeda di Tengah -->
+                    <!-- Kamera Reader dengan Overlay Hitam & Tombol Jeda -->
                     <div class="relative rounded-xl overflow-hidden border-2 border-indigo-500 bg-black">
                         <div id="reader" class="w-full"></div>
                         
@@ -150,16 +150,13 @@
                     </div>
                 </div>
 
-                <!-- Kontainer Batang Diagram Grafik Kelas -->
                 <div class="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
                     <p class="text-xs text-gray-500 font-medium italic mb-2">*Jumlah siswa yang hadir berdasarkan kelas pada sesi aktif saat ini.</p>
-                    <div id="chart-container" class="space-y-3">
-                        <!-- Bar chart akan digenerate otomatis via JavaScript -->
-                    </div>
+                    <div id="chart-container" class="space-y-3"></div>
                 </div>
             </div>
 
-            <!-- ================= PAGE 3: TABEL REKAP KESELURUHAN (MASTER VS STATUS) ================= -->
+            <!-- ================= PAGE 3: TABEL REKAP KESELURUHAN ================= -->
             <div id="page-rekap-tabel" class="hidden space-y-4">
                 <div class="flex justify-between items-center bg-slate-100 p-3 rounded-lg">
                     <div>
@@ -171,12 +168,10 @@
                     </button>
                 </div>
 
-                <!-- Kotak Pencarian Cepat di Tabel -->
                 <div>
                     <input type="text" id="search-siswa" placeholder="🔍 Cari nama atau kelas siswa..." onkeyup="filterTabelRekap()" class="w-full p-2.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
 
-                <!-- Kontainer Tabel Scrollable (Atas-Bawah & Kiri-Kanan) -->
                 <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
                     <div class="max-h-96 overflow-y-auto overflow-x-auto">
                         <table class="w-full text-left text-xs text-gray-600 whitespace-nowrap">
@@ -203,7 +198,6 @@
     </div>
 
     <script>
-        // GANTI LINK DI BAWAH INI DENGAN URL WEB APP APPS SCRIPT ANDA
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxs3gjlBU0dniylVuhh_sVfrw4BGE3vk-0TouQ6X78Z9PWpkAVzu0dzQwU1Zh9gvYAX/exec";
 
         let html5QrcodeScanner = null;
@@ -212,17 +206,10 @@
         let sessionData = []; 
         let cacheRekapData = [];
 
-        let scanQueue = [];
-        let isSyncingQueue = false;
-
         function startScanning() {
             const petugas = document.getElementById('petugas').value.trim();
             if (!petugas) {
                 alert('Silakan isi nama petugas terlebih dahulu!');
-                return;
-            }
-            if (SCRIPT_URL.includes("MASUKKAN_URL")) {
-                alert('Harap masukkan URL Web App Apps Script terlebih dahulu di dalam kode!');
                 return;
             }
 
@@ -233,6 +220,18 @@
             document.getElementById('scan-section').classList.remove('hidden');
 
             initScannerInstance();
+        }
+
+        function stopScanning() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().catch(() => {}).finally(() => {
+                    document.getElementById('scan-section').classList.add('hidden');
+                    document.getElementById('setup-section').classList.remove('hidden');
+                });
+            } else {
+                document.getElementById('scan-section').classList.add('hidden');
+                document.getElementById('setup-section').classList.remove('hidden');
+            }
         }
 
         function initScannerInstance() {
@@ -247,7 +246,6 @@
 
         function createScanner() {
             html5QrcodeScanner = new Html5Qrcode("reader");
-            
             const config = { 
                 fps: 10, 
                 qrbox: { width: currentQrBoxSize, height: currentQrBoxSize },
@@ -259,7 +257,7 @@
                 config, 
                 onScanSuccess
             ).catch(err => {
-                alert("Gagal mengakses kamera: " + err + "\n\nPastikan Anda membuka halaman via HTTPS dan memberikan izin kamera.");
+                alert("Gagal mengakses kamera: " + err);
                 stopScanning();
             });
         }
@@ -281,7 +279,6 @@
             }
         }
 
-        // ⏸️ Fitur Jeda / Lanjutkan Kamera (Layar Hitam & Tombol di Tengah)
         function toggleCameraPause() {
             const btnPause = document.getElementById('btn-pause');
             const overlay = document.getElementById('camera-overlay');
@@ -290,18 +287,14 @@
             if (!isCameraPaused) {
                 html5QrcodeScanner.pause(true);
                 isCameraPaused = true;
-                
                 btnPause.innerHTML = "▶️ Lanjutkan Kamera";
                 btnPause.className = "bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-full shadow-lg text-xs flex items-center gap-1.5 transition transform active:scale-95 border-2 border-white/20";
-                
                 overlay.classList.remove('hidden');
             } else {
                 html5QrcodeScanner.resume();
                 isCameraPaused = false;
-                
                 btnPause.innerHTML = "⏸️ Jeda Kamera";
                 btnPause.className = "bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2.5 rounded-full shadow-lg text-xs flex items-center gap-1.5 transition transform active:scale-95 border-2 border-white/20";
-                
                 overlay.classList.add('hidden');
                 hideStatus();
             }
@@ -321,7 +314,6 @@
             document.getElementById('page-scanner').classList.remove('hidden');
         }
 
-        // Buka Halaman Tabel Rekap Keseluruhan
         async function openRekapTable() {
             const kegiatanAktif = document.getElementById('kegiatan').value;
             document.getElementById('rekap-title-kegiatan').innerText = kegiatanAktif;
@@ -362,7 +354,7 @@
 
         function renderTabelRekap(dataSiswa) {
             const tbody = document.getElementById('tabel-rekap-body');
-            if (dataSiswa.length === 0) {
+            if (!dataSiswa || dataSiswa.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">Tidak ada data siswa ditemukan di MasterSiswa.</td></tr>`;
                 return;
             }
@@ -372,26 +364,19 @@
                     ? `<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold">Hadir</span>`
                     : `<span class="bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full font-bold">Belum Hadir</span>`;
 
-                let waktuBersih = item.waktu;
-                if (waktuBersih && waktuBersih.includes(":")) {
-                    let match = waktuBersih.match(/\d{2}:\d{2}(:\d{2})?/);
-                    if (match) waktuBersih = match[0];
-                }
-
                 return `
                     <tr class="border-b hover:bg-gray-50">
                         <td class="p-2.5 text-center font-mono text-gray-400">${item.no}</td>
                         <td class="p-2.5 font-semibold text-gray-800">${item.nama}</td>
                         <td class="p-2.5">${item.kelas}</td>
                         <td class="p-2.5 text-center">${badgeStatus}</td>
-                        <td class="p-2.5 text-center font-mono text-gray-500">${waktuBersih}</td>
+                        <td class="p-2.5 text-center font-mono text-gray-500">${item.waktu}</td>
                         <td class="p-2.5 text-gray-500">${item.petugas}</td>
                     </tr>
                 `;
             }).join('');
         }
 
-        // Fitur Filter / Cari Nama Siswa Instan di Tabel Rekap
         function filterTabelRekap() {
             let keyword = document.getElementById('search-siswa').value.toLowerCase();
             let filtered = cacheRekapData.filter(item => 
@@ -439,7 +424,6 @@
         function shareToWhatsApp() {
             const kegiatanAktif = document.getElementById('kegiatan').value;
             const petugas = document.getElementById('petugas').value || "Petugas";
-
             const filteredData = sessionData.filter(item => item.kegiatan === kegiatanAktif && item.kelas !== "..." && item.kelas !== "Duplikat" && item.kelas !== "Error");
             const totalHadir = filteredData.length;
 
@@ -464,106 +448,95 @@
                         `━━━━━━━━━━━━━━━━━━━━━━━\n` +
                         `_Sistem Terpusat Multi-Device Asrama_`;
 
-            let encodedUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(pesan)}`;
-            window.open(encodedUrl, '_blank');
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(pesan)}`, '_blank');
         }
 
-        function onScanSuccess(decodedText, decodedResult) {
+        // 🎯 FUNGSI SCAN DENGAN SINKRONISASI SERVER REAL-TIME
+        function onScanSuccess(decodedText) {
             if (isCameraPaused) return;
 
             const idSiswaScan = decodedText.trim();
             const kegiatanAktif = document.getElementById('kegiatan').value;
+            const petugasAktif = document.getElementById('petugas').value.trim();
 
-            const sudahAdaDiSesi = sessionData.some(item => item.id === idSiswaScan && item.kegiatan === kegiatanAktif && item.kelas !== "Duplikat");
-            if (sudahAdaDiSesi) {
+            const sudahAda = sessionData.some(item => item.id === idSiswaScan && item.kegiatan === kegiatanAktif);
+            if (sudahAda) {
                 playErrorSound();
-                if ("vibrate" in navigator) navigator.vibrate([100, 50, 100]);
-                showStatus(`⚠️ Siswa ini sudah tercatat diabsen dalam sesi ini!`, "bg-amber-100 text-amber-800 border border-amber-400");
-                setTimeout(() => hideStatus(), 1500);
+                showStatus(`⚠️ Siswa ${idSiswaScan} sudah tercatat di sesi ini!`, "bg-amber-100 text-amber-800 border border-amber-400");
+                setTimeout(() => hideStatus(), 2000);
                 return;
             }
 
             playBeepSound();
-            if ("vibrate" in navigator) navigator.vibrate(100);
+            showStatus(`⏳ Memvalidasi ID: ${idSiswaScan}...`, "bg-blue-100 text-blue-800 border border-blue-400");
 
-            const waktuNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            
-            const itemBaru = {
-                id: idSiswaScan,
-                waktu: waktuNow,
-                nama: `ID: ${idSiswaScan} (Memvalidasi Server...)`,
-                kelas: "...",
-                kegiatan: kegiatanAktif
-            };
-            sessionData.unshift(itemBaru);
-            updateTable();
-            
-            showStatus(`✅ Memproses QR: ${idSiswaScan}`, "bg-emerald-100 text-emerald-800 border border-emerald-400");
-            setTimeout(() => hideStatus(), 1000);
-
-            scanQueue.push(itemBaru);
-            processQueue();
-        }
-
-        function processQueue() {
-            if (isSyncingQueue || scanQueue.length === 0) return;
-            isSyncingQueue = true;
-
-            const currentItem = scanQueue[0];
-            const payload = {
-                idSiswa: currentItem.id,
-                kegiatan: currentItem.kegiatan,
-                petugas: document.getElementById('petugas').value
-            };
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-
+            // Kirim ke Google Apps Script backend
             fetch(SCRIPT_URL, {
                 method: "POST",
-                body: JSON.stringify(payload),
-                signal: controller.signal
+                body: JSON.stringify({
+                    idSiswa: idSiswaScan,
+                    kegiatan: kegiatanAktif,
+                    petugas: petugasAktif
+                })
             })
-            .then(response => response.json())
-            .then(result => {
-                clearTimeout(timeoutId);
-                if (result.status === "success") {
-                    currentItem.nama = result.siswa.nama;
-                    currentItem.kelas = result.siswa.kelas;
-                    showStatus(`✅ ${result.siswa.nama} (${result.siswa.kelas}) Berhasil!`, "bg-emerald-100 text-emerald-800 border border-emerald-400");
-                    setTimeout(() => hideStatus(), 1200);
-                } else if (result.status === "warning") {
-                    playErrorSound();
-                    currentItem.nama = `ID: ${currentItem.id} (Sudah Absen)`;
-                    currentItem.kelas = "Duplikat";
-                    showStatus(`⚠️ ${result.pesan}`, "bg-amber-100 text-amber-800 border border-amber-400");
-                    setTimeout(() => hideStatus(), 2000);
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "success") {
+                    showStatus(`✅ Berhasil: ${data.siswa.nama} (${data.siswa.kelas})`, "bg-emerald-100 text-emerald-800 border border-emerald-400");
+
+                    const waktuNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    sessionData.unshift({
+                        id: data.siswa.id,
+                        waktu: waktuNow,
+                        nama: data.siswa.nama,
+                        kelas: data.siswa.kelas,
+                        kegiatan: kegiatanAktif
+                    });
+
+                    updateTable();
+                    setTimeout(() => hideStatus(), 2500);
+
+                } else if (data.status === "warning") {
+                    showStatus(`⚠️ ${data.pesan}`, "bg-amber-100 text-amber-800 border border-amber-400");
+                    setTimeout(() => hideStatus(), 3000);
                 } else {
-                    playErrorSound();
-                    currentItem.nama = `ID: ${currentItem.id} (Gagal)`;
-                    currentItem.kelas = "Error";
-                    showStatus(`❌ ${result.pesan}`, "bg-red-100 text-red-800 border border-red-400");
-                    setTimeout(() => hideStatus(), 2000);
+                    showStatus(`❌ ${data.pesan}`, "bg-rose-100 text-rose-800 border border-rose-400");
+                    setTimeout(() => hideStatus(), 3000);
                 }
             })
             .catch(err => {
-                console.error("Gagal sinkron / timeout:", err);
-                currentItem.nama = `ID: ${currentItem.id} (Offline Mode)`;
-                currentItem.kelas = "Offline";
-            })
-            .finally(() => {
-                updateTable();
-                scanQueue.shift();
-                isSyncingQueue = false;
-                processQueue();
+                console.error(err);
+                showStatus(`❌ Kesalahan koneksi ke server`, "bg-rose-100 text-rose-800 border border-rose-400");
+                setTimeout(() => hideStatus(), 3000);
             });
         }
 
-        function showStatus(message, classes) {
+        function updateTable() {
+            const kegiatanAktif = document.getElementById('kegiatan').value;
+            const filtered = sessionData.filter(item => item.kegiatan === kegiatanAktif);
+            const tbody = document.getElementById('log-table');
+
+            document.getElementById('dash-total-hadir').innerText = filtered.length;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-400">Belum ada data untuk kegiatan ini.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(item => `
+                <tr class="border-b">
+                    <td class="p-2 font-mono">${item.waktu}</td>
+                    <td class="p-2 font-semibold text-gray-800">${item.nama}</td>
+                    <td class="p-2 text-gray-500">${item.kelas}</td>
+                </tr>
+            `).join('');
+        }
+
+        function showStatus(text, bgClass) {
             const box = document.getElementById('status-box');
-            const text = document.getElementById('status-text');
-            box.className = `p-4 rounded-xl text-center font-bold text-sm transition-all duration-300 ${classes}`;
-            text.innerHTML = message;
+            const txt = document.getElementById('status-text');
+            box.className = `p-4 rounded-xl text-center font-bold text-base transition-all duration-300 ${bgClass}`;
+            txt.innerText = text;
             box.classList.remove('hidden');
         }
 
@@ -571,66 +544,28 @@
             document.getElementById('status-box').classList.add('hidden');
         }
 
-        function updateTable() {
-            const kegiatanAktif = document.getElementById('kegiatan').value;
-            const tbody = document.getElementById('log-table');
-
-            const filteredData = sessionData.filter(item => item.kegiatan === kegiatanAktif);
-            const validCount = filteredData.filter(item => item.kelas !== "..." && item.kelas !== "Duplikat" && item.kelas !== "Error").length;
-            document.getElementById('dash-total-hadir').innerText = validCount;
-
-            if (filteredData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-400">Belum ada data untuk kegiatan ini.</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = filteredData.map(item => `
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="p-2 font-mono">${item.waktu}</td>
-                    <td class="p-2 font-semibold text-gray-800">${item.nama}</td>
-                    <td class="p-2">${item.kelas}</td>
-                </tr>
-            `).join('');
-        }
-
-        function stopScanning() {
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.stop().then(() => {
-                    document.getElementById('scan-section').classList.add('hidden');
-                    document.getElementById('setup-section').classList.remove('hidden');
-                    isCameraPaused = false;
-                    document.getElementById('camera-overlay').classList.add('hidden');
-                    const btnPause = document.getElementById('btn-pause');
-                    btnPause.innerHTML = "⏸️ Jeda Kamera";
-                    btnPause.className = "bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2.5 rounded-full shadow-lg text-xs flex items-center gap-1.5 transition transform active:scale-95 border-2 border-white/20";
-                }).catch(err => console.error(err));
-            }
-        }
-
         function playBeepSound() {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.type = "sine";
-            osc.frequency.value = 800;
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.15);
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch(e){}
         }
 
         function playErrorSound() {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.type = "sawtooth";
-            osc.frequency.value = 250;
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.3);
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = "sawtooth";
+                osc.frequency.setValueAtTime(300, ctx.currentTime);
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } catch(e){}
         }
     </script>
 </body>
